@@ -29,18 +29,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compute tags
-        id: meta
+      - name: Prepare tags
+        id: prep
+        shell: bash
         run: |
           OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "owner_lc=$OWNER_LC" >> $GITHUB_OUTPUT
-          # If this is a tag like v0.36.2, also push that tag
+          IMAGE="ghcr.io/${OWNER_LC}/pocketbase-azure-template"
+          TAGS="${IMAGE}:latest,${IMAGE}:${{ github.sha }}"
           if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
-            echo "version_tag=$VERSION" >> $GITHUB_OUTPUT
-          else
-            echo "version_tag=" >> $GITHUB_OUTPUT
+            TAGS="${TAGS},${IMAGE}:${VERSION}"
           fi
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
 
       - name: Build and push (multi-arch)
         uses: docker/build-push-action@v6
@@ -48,9 +49,4 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ghcr.io/${{ steps.meta.outputs.owner_lc }}/pocketbase-azure:latest
-            ghcr.io/${{ steps.meta.outputs.owner_lc }}/pocketbase-azure:${{ github.sha }}
-            ghcr.io/${{ steps.meta.outputs.owner_lc }}/pocketbase-azure:${{ steps.meta.outputs.version_tag }}
-          build-args: |
-            PB_VERSION=0.36.2
+          tags: ${{ steps.prep.outputs.tags }}

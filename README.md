@@ -1,78 +1,77 @@
-# CRD PocketBase
+# PocketBase Azure Template
 
-Backend [PocketBase](https://pocketbase.io/) pour le projet CRD, déployable via Docker.
+Template de déploiement [PocketBase](https://pocketbase.io/) sur Azure avec support Docker et GitHub Container Registry (GHCR).
 
-## Collections
+## 🚀 Déploiement sur Azure Web App
 
-Le schéma de la base de données est défini via des migrations JavaScript dans le dossier `pb_migrations/`.
+Ce template utilise l'image Docker automatiquement construite et publiée sur GitHub Container Registry (GHCR).
 
-### `event`
+### Étape 1 : Créer une Web App depuis le portail Azure
 
-| Champ       | Type       | Requis | Description                          |
-| ----------- | ---------- | ------ | ------------------------------------ |
-| `id`        | text (15)  | oui    | Identifiant auto-généré (clé primaire) |
-| `title`     | text       | oui    | Titre de l'événement                 |
-| `published` | bool       | non    | Indique si l'événement est publié    |
-| `created`   | autodate   | auto   | Date de création                     |
-| `updated`   | autodate   | auto   | Date de dernière modification        |
+1. **Abonnement** : Sélectionnez `Azure for Students`
 
-**Règles d'accès :**
+2. **Groupe de ressources** : Cliquez sur `Créer nouveau` et donnez-lui un nom
 
-- **Liste** : `published = true` — seuls les événements publiés sont listés.
-- **Vue** : `published = true` — seuls les événements publiés sont visibles.
+3. **Détails de l'instance** :
+   - **Nom de l'application web** : Choisissez un nom unique (ex: `mon-pocketbase`)
+   - **Sécurisez le nom d'hôte par défaut unique activé** : `Non` (décoché)
+   - **Publier** : `Conteneur`
+   - **Système d'exploitation** : `Linux`
+   - **Région** : `France Central`
 
-### `page`
+4. **Plan App Service** :
+   - **Plan Linux** : Cliquez sur `Créer nouveau` et donnez-lui un nom
+   - **Plan tarifaire** : `Gratuit F1`
 
-| Champ         | Type           | Requis | Description                             |
-| ------------- | -------------- | ------ | --------------------------------------- |
-| `id`          | text (15)      | oui    | Identifiant auto-généré (clé primaire)  |
-| `published`   | bool           | non    | Indique si la page est publiée          |
-| `title`       | text           | non    | Titre de la page                        |
-| `imgFile`     | file           | oui    | Image (JPEG ou WebP)                    |
-| `imgAlt`      | text           | oui    | Texte alternatif de l'image             |
-| `excerpt`     | text           | oui    | Extrait / résumé                        |
-| `description` | editor (HTML)  | oui    | Contenu détaillé                        |
-| `created`     | autodate       | auto   | Date de création                        |
-| `updated`     | autodate       | auto   | Date de dernière modification           |
+### Étape 2 : Configuration du conteneur
 
-**Règles d'accès :**
+Dans l'onglet **Conteneur** :
 
-- **Liste** : `published = true` — seules les pages publiées sont listées.
-- **Vue** : `published = true` — seules les pages publiées sont visibles.
+- **Source d'image** : `Autre registres de conteneurs`
+- **Nom** : `main`
+- **Options** : `Docker Hub`
+- **Type d'accès** : `Public`
+- **URL du serveur de Registre** : `https://ghcr.io`
+- **Image et étiquette** : `xaviersenente/pocketbase-azure-template:0.36.2`
+- **Port** : `8090`
 
-## Déploiement avec Docker
+### Étape 3 : Configuration après le déploiement
 
-Le `Dockerfile` utilise PocketBase **v0.36.2** sur Alpine Linux.
+Une fois la Web App créée, configurez les variables d'environnement :
 
-### Construire l'image
+1. Allez dans **Configuration** > **Paramètres de l'application**
+2. Ajoutez les variables d'environnement suivantes :
 
-```bash
-docker build -t crd-pocketbase .
-```
+| Nom                                   | Valeur |
+| ------------------------------------- | ------ |
+| `WEBSITES_ENABLE_APP_SERVICE_STORAGE` | `true` |
+| `WEBSITES_PORT`                       | `8090` |
 
-### Lancer le conteneur
+3. **Enregistrez** les modifications
 
-```bash
-docker run -p 8080:8080 crd-pocketbase
-```
+### Étape 4 : Récupérer l'URL de création du compte superuser
 
-L'interface d'administration est ensuite accessible à l'adresse : **http://localhost:8080/_/**
+1. Allez dans **Centre de déploiement** > **Journaux**
+2. Consultez les logs du démarrage du conteneur
+3. Recherchez l'URL de création du compte administrateur
+4. Remplacez `127.0.0.1:8090` par votre URL Azure (ex: `mon-pocketbase.azurewebsites.net`)
+5. Accédez à cette URL pour créer votre compte superuser
 
-### Persistence des données
+## 📦 CI/CD avec GitHub Actions
 
-Pour conserver les données entre les redémarrages, montez un volume sur `/pb/pb_data` :
+Le workflow [.github/workflows/ghcr.yml](.github/workflows/ghcr.yml) construit automatiquement l'image Docker et la publie sur GHCR :
 
-```bash
-docker run -p 8080:8080 -v ./pb_data:/pb/pb_data crd-pocketbase
-```
+- ✅ Build multi-plateforme (linux/amd64, linux/arm64)
+- ✅ Publication automatique sur push vers `main`
+- ✅ Tagging avec SHA du commit et versions sémantiques
+- ✅ Image disponible sur `ghcr.io/xaviersenente/pocketbase-azure-template`
 
-## API
+## 🔧 Configuration des collections
 
-Une fois le serveur lancé, l'API REST est disponible sur le port **8080**. Exemples :
+Les collections peuvent être créées et configurées directement via l'interface d'administration PocketBase accessible à `https://<votre-app>.azurewebsites.net/_/`.
 
-```
-GET /api/collections/event/records   # Liste des événements publiés
-GET /api/collections/page/records    # Liste des pages publiées
-```
+Vous pouvez également importer des collections existantes via l'interface en utilisant la fonctionnalité d'import/export de PocketBase.
 
-Consultez la [documentation PocketBase](https://pocketbase.io/docs/) pour l'ensemble des endpoints disponibles.
+L'interface d'administration est accessible à : `https://<votre-app>.azurewebsites.net/_/`
+
+Consultez la [documentation PocketBase](https://pocketbase.io/docs/) pour plus de détails.
